@@ -1,14 +1,16 @@
 import pandas as pd
 import requests
 import sys
-from tqdm import tqdm
 import time
+import os
+
+from tqdm import tqdm
 
 def add_url(row):
     return f"https://www.imdb.com/title/tt{row}"
 
 def add_rating(df):
-    ratings_df = pd.read_csv('data/ratings.csv')
+    ratings_df = pd.read_csv('app/data/ratings.csv')
     ratings_df['movieId'] = ratings_df['movieId'].astype(str)
     agg_df = ratings_df.groupby('movieId').agg(
         rating_count = ('rating', 'count'),
@@ -19,9 +21,13 @@ def add_rating(df):
     return rating_added_df
 
 def add_poster(df):
+    api_key = os.environ.get('TMDB_API_KEY')
+    if not api_key:
+        raise ValueError('TMDB_API_KEY not exists')
+
     for i, row in tqdm(df.iterrows(), total = df.shape[0]):
         tmdb_id = row["tmdbId"]
-        tmdb_url = f"https://api.themoviedb.org/3/movie/{tmdb_id}?api_key=6698aadd63ed0ec0c7f9cb4dcda2ce9e&language=en-US"
+        tmdb_url = f"https://api.themoviedb.org/3/movie/{tmdb_id}?api_key={api_key}&language=en-US"
         result = requests.get(tmdb_url)
         try:
             df.at[i, "poster_path"] = "https://image.tmdb.org/t/p/original" + result.json()['poster_path']
@@ -31,8 +37,8 @@ def add_poster(df):
     return df
 
 if __name__ == "__main__":
-    movies_df = pd.read_csv('data/movies.csv')
-    links_df = pd.read_csv('data/links.csv', dtype = str)
+    movies_df = pd.read_csv('app/data/movies.csv')
+    links_df = pd.read_csv('app/data/links.csv', dtype = str)
     
     movies_df['movieId'] = movies_df['movieId'].astype(str)
     merged_df = movies_df.merge(links_df, on = 'movieId', how = 'left')
@@ -41,4 +47,4 @@ if __name__ == "__main__":
     result_df['poster_path'] = None
     result_df = add_poster(result_df)
 
-    result_df.to_csv("data/movies_final.csv", index = None)
+    result_df.to_csv("app/data/movies_final.csv", index = None)
